@@ -1,6 +1,9 @@
 from pymongo import MongoClient
 import datetime as datetime
 import matplotlib.pyplot as plt
+from waitress import serve
+import requests
+from flask import Flask
 
 conn_prod_db = MongoClient('mongodb://diegomary:Atreius%4062@vpp4i.nevergoback.cloud:27017/?serverSelectionTimeoutMS=5000&connectTimeoutMS=10000&authSource=admin&authMechanism=SCRAM-SHA-256', 27017)
 conn_personal_db = MongoClient("mongodb+srv://pietroviglino999:rkoEZiZp6tzduEUZ@vpp4dbtest.yseft60.mongodb.net/?retryWrites=true&w=majority", 27017)
@@ -8,8 +11,10 @@ conn_personal_db = MongoClient("mongodb+srv://pietroviglino999:rkoEZiZp6tzduEUZ@
 db_prod = conn_prod_db['vpp4i']
 db_personal = conn_personal_db['vpp4_database_test']
 
+app = Flask(__name__, static_url_path='', static_folder='production')
 
-def check_missing_ts(collection_name):
+@app.route('/fillmissing/<collection_name>')
+def fill_missing_ts(collection_name):
     prod_coll = db_prod[collection_name]
     data = list(prod_coll.find({}, {'_id': 0}))  
     # ts_start = data[0]['timestamp']
@@ -38,8 +43,9 @@ def check_missing_ts(collection_name):
             print('adding document: ', doc)
             target_coll.insert_one(doc)
     print("done")
-    return 
+    return 'done'
 
+@app.route('/impute/<collection_name>')
 def impute(collection_name):
     box2 = db_personal['box2_gokc']
     data_ref = list(box2.find({}))
@@ -52,22 +58,28 @@ def impute(collection_name):
         if doc['generated'] is None and doc_ref['generated'] is not None:
             pers_coll.update_one({"_id": doc["_id"]}, {"$set": {"generated": doc_ref["generated"]}})
     print('done')
+    return 'done'
 
+@app.route('/plot/<collection_name>')
 def plot_coll(collection_name):
     pers_coll = db_personal[collection_name]
     data = list(pers_coll.find({}, {"_id": 0}))
+    type = data[0]['type']
     data = sorted(data, key=lambda x: x["timestamp"])
     x = [datetime.datetime.strptime(_['timestamp'], '%Y-%m-%d %H:%M:%S') for _ in data]
     y = [float(_['generated']) for _ in data]
     plt.plot(x, y)
     plt.xlabel('Timestamp')
     plt.ylabel('Generated Values')
-    plt.title(f'Plot for {collection_name}')
+    plt.title(f'Plot for {collection_name}, type {type}')
     plt.xticks(rotation=45)
     plt.show()
+    return 'done'
 
 # check_missing_ts("box1_gokc")
 
 # impute('box1_gokc')
 
-plot_coll('box3_gokc')
+if __name__ == "__main__":
+    print('App served on port 9999')
+    serve(app, host='0.0.0.0', port=9999)
