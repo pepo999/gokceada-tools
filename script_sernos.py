@@ -6,7 +6,7 @@ prod_db = conn_prod_db['vpp4i']
 prod_coll = prod_db['listgokcsm']
 conn_personal_db = MongoClient("mongodb+srv://pietroviglino999:rkoEZiZp6tzduEUZ@vpp4dbtest.yseft60.mongodb.net/?retryWrites=true&w=majority", 27017)
 db_personal = conn_personal_db['vpp4_database_test']
-nodes_coll = db_personal['nodes_gokc']
+nodes_coll = db_personal['nodes_no_uedas_gokc']
 
 xc_data = pd.read_excel('nodes_lines_gokceada_Oct31_2023.xlsx', sheet_name='nodes')
 sub_sm_list = list(prod_coll.find({"type": "sub_sm"}, {"_id": 0}))
@@ -37,19 +37,32 @@ reversed_list = [(b, a) for a, b in list_of_tuples]
 total_links = list_of_tuples + reversed_list
 
 
+meter_links = []
 
+for meter in meters_sub:
+    links = []
+    for tuple_value in total_links:
+        if meter == tuple_value[0]: 
+            second_value = tuple_value[1]
+            # print(f"Found match: {meter} is the first value, and the second value is {second_value}")
+            links.append(second_value)
+        else:
+            # print(f"No match found for {meter}")
+            continue
+    doc = {"meter": meter, "link_to": links} 
+    meter_links.append(doc)
+ 
+def update_collection_with_links(data_list):
+    for item in data_list:
+        meter_value = item['meter']
+        link_to_value = item['link_to']
+        document = nodes_coll.find_one({'meter': meter_value})
+        if document:
+            nodes_coll.update_one(
+                {'_id': document['_id']},
+                {'$set': {'link_to': link_to_value}}
+            )
 
-def update_subsm_line_to():
-    for meter in meters_sub:
-        links = []
-        for tuple_value in total_links:
-            if meter == tuple_value[0]: 
-                second_value = tuple_value[1]
-                # print(f"Found match: {meter} is the first value, and the second value is {second_value}")
-                links.append(second_value)
-            else:
-                # print(f"No match found for {meter}")
-                continue
-        print('meter: ', meter, ' link_to: ', links)     
-   
-update_subsm_line_to()
+# needs testing. check again before testing
+
+# update_collection_with_links(meter_links)
