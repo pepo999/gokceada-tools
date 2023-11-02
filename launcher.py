@@ -123,7 +123,7 @@ def regenerate_gokc_db(meter_index_start=0, meter_index_end=5, start_date='20011
     filtered = allSubscriptions.get('ResultList', '0')
     for singlesub in filtered:
         metersreal.append(singlesub.get('SubscriptionSerno', '0'))
-    print('meters count: ', len(metersreal))
+    print('meters count:', len(metersreal))
     metersreal = metersreal[meter_index_start:meter_index_end]
     result = []
     for meter in metersreal:
@@ -168,7 +168,7 @@ def regenerate_gokc_db(meter_index_start=0, meter_index_end=5, start_date='20011
         to_db.append(data)
     # here fill missing timestamps for meter with 0.0 ?
     sorted_res = sorted(to_db, key=lambda x: x['timestamp_end'])
-    print('to db len: ', len(sorted_res))
+    print('to db len:', len(sorted_res))
     gokc_sm_coll = db_personal['gokc_smartmeters'] # after testing is completed this should be changed to production db
     gokc_data_db = list(gokc_sm_coll.find({}, {'_id': 0}))
     bulk_operations = []
@@ -197,5 +197,9 @@ def regenerate_gokc_db(meter_index_start=0, meter_index_end=5, start_date='20011
 # 5:10 completed
 # 10:20 completed --backup
 # 20:30 completed
+# 30:40 completed
+# 40:50 completed
+# 40:60 completed
+# 60:80 completed
 
-regenerate_gokc_db(20, 25)
+regenerate_gokc_db(60, 80)
