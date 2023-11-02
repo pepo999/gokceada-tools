@@ -56,9 +56,9 @@ def update_collection_with_links(data_list):
     for item in data_list:
         meter_value = item['meter']
         link_to_value = item['link_to']
-        document = nodes_coll.find_one({'meter': meter_value})
+        document = prod_coll.find_one({'meter': meter_value})
         if document:
-            nodes_coll.update_one(
+            prod_coll.update_one(
                 {'_id': document['_id']},
                 {'$set': {'link_to': link_to_value}}
             )
