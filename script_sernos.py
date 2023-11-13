@@ -9,14 +9,8 @@ db_personal = conn_personal_db['vpp4_database_test']
 personal_coll = db_personal['gokcgrid']
 
 xc_data_nodes = pd.read_excel('nodes_lines_gokceada_Oct31_2023.xlsx', sheet_name='nodes')
-# types_list = list(prod_coll.find({}, {"_id": 0}))
-# meters = [int(x['meter']) for x in sub_sm_list]
-
-# xc_data_nodes = xc_data_nodes[1:5]
-# print(xc_data_nodes)
 
 sernos = xc_data_nodes['Gokçeada grid nodes'].iloc[2:].tolist()
-# sernos = list(set(sernos))
 longitudes = xc_data_nodes['Unnamed: 5'].iloc[2:].tolist()
 latitudes = xc_data_nodes['Unnamed: 6'].iloc[2:].tolist()
 
@@ -33,18 +27,12 @@ for x, y, z in zip(sernos, latitudes, longitudes):
     new_doc = {"meter": x, "lat": y, "long": z, "type": type}
     ser_lat_long.append(new_doc)
 
-result_list = ser_lat_long
-
-print(result_list)
-
-# print('res list: ', result_list)
-for _ in result_list:
+for _ in ser_lat_long:
     if _['meter'] == 910097:
         assert _['lat'] == 40.2054, 'Lat is mismatched'
     if _['meter'] == 900186:
         assert _['lat'] == 40.1235012227, 'Lat is mismatched'
         assert _['long'] == 25.6912829562, 'Long is mismatched'   
-print('len res list: ', len(result_list))
 
 xc_data_lines = pd.read_excel('nodes_lines_gokceada_Oct31_2023.xlsx', sheet_name='lines')
 xc_data_lines = xc_data_lines.iloc[2:, :2]
@@ -55,7 +43,7 @@ total_links = list_of_tuples + reversed_list
 
 meter_links = []
 
-for doc in result_list:
+for doc in ser_lat_long:
     links = []
     for tuple_value in total_links:
         if doc['meter'] == tuple_value[0]: 
@@ -84,5 +72,15 @@ def fill_coll_db(data):
         print('adding doc: ', doc)
         prod_coll.insert_one(doc)
     print('done')
-        
-# fill_coll_db(meter_links)
+
+def add_for_type(type):
+    prod_db = conn_prod_db['vpp4i']
+    listgokc_coll = prod_db['listgokcsm']
+    private_sms = list(listgokc_coll.find({"type": type}, {"_id":0}))
+    for doc in private_sms:
+        print('adding doc ', doc)
+        prod_coll.insert_one(doc)
+    print('done')
+    
+    
+    
