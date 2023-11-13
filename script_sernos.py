@@ -12,8 +12,11 @@ xc_data_nodes = pd.read_excel('nodes_lines_gokceada_Oct31_2023.xlsx', sheet_name
 # types_list = list(prod_coll.find({}, {"_id": 0}))
 # meters = [int(x['meter']) for x in sub_sm_list]
 
+# xc_data_nodes = xc_data_nodes[1:5]
+# print(xc_data_nodes)
+
 sernos = xc_data_nodes['Gokçeada grid nodes'].iloc[2:].tolist()
-sernos = list(set(sernos))
+# sernos = list(set(sernos))
 longitudes = xc_data_nodes['Unnamed: 5'].iloc[2:].tolist()
 latitudes = xc_data_nodes['Unnamed: 6'].iloc[2:].tolist()
 
@@ -32,7 +35,15 @@ for x, y, z in zip(sernos, latitudes, longitudes):
 
 result_list = ser_lat_long
 
-print('res list: ', result_list)
+print(result_list)
+
+# print('res list: ', result_list)
+for _ in result_list:
+    if _['meter'] == 910097:
+        assert _['lat'] == 40.2054, 'Lat is mismatched'
+    if _['meter'] == 900186:
+        assert _['lat'] == 40.1235012227, 'Lat is mismatched'
+        assert _['long'] == 25.6912829562, 'Long is mismatched'   
 print('len res list: ', len(result_list))
 
 xc_data_lines = pd.read_excel('nodes_lines_gokceada_Oct31_2023.xlsx', sheet_name='lines')
