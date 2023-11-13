@@ -9,8 +9,8 @@ db_personal = conn_personal_db['vpp4_database_test']
 nodes_coll = db_personal['nodes_no_uedas_gokc']
 
 xc_data = pd.read_excel('nodes_lines_gokceada_Oct31_2023.xlsx', sheet_name='nodes')
-sub_sm_list = list(prod_coll.find({"type": "sub_sm"}, {"_id": 0}))
-meters_sub = [int(x['meter']) for x in sub_sm_list]
+meter_list = list(prod_coll.find({}, {"_id": 0}))
+meters = [int(x['meter']) for x in meter_list if 'meter' in x]
 
 sernos = xc_data['Gokçeada grid nodes'].iloc[2:].tolist()
 sernos = list(set(sernos))
@@ -22,7 +22,7 @@ for x, y, z in zip(sernos, latitudes, longitudes):
     new_doc = {"meter": x, "lat": y, "long": z, "type": "sub_sm_no_uedas"}
     ser_lat_long.append(new_doc)
 
-result_list = [x for x in ser_lat_long if x['meter'] not in meters_sub]
+result_list = [x for x in ser_lat_long if x['meter'] not in meters]
 
 # def db_insert(list):
 #     for doc in list:
@@ -36,21 +36,21 @@ list_of_tuples = list(xc_data_lines.to_records(index=False))
 reversed_list = [(b, a) for a, b in list_of_tuples]
 total_links = list_of_tuples + reversed_list
 
-
-meter_links = []
-
-for meter in meters_sub:
-    links = []
-    for tuple_value in total_links:
-        if meter == tuple_value[0]: 
-            second_value = tuple_value[1]
-            # print(f"Found match: {meter} is the first value, and the second value is {second_value}")
-            links.append(second_value)
-        else:
-            # print(f"No match found for {meter}")
-            continue
-    doc = {"meter": meter, "link_to": links} 
-    meter_links.append(doc)
+def meter_links():
+    meter_links = []
+    for meter in meters:
+        links = []
+        for tuple_value in total_links:
+            if meter == tuple_value[0]: 
+                second_value = tuple_value[1]
+                # print(f"Found match: {meter} is the first value, and the second value is {second_value}")
+                links.append(second_value)
+            else:
+                # print(f"No match found for {meter}")
+                continue
+        doc = {"meter": meter, "link_to": links} 
+        meter_links.append(doc)
+    return meter_links
  
 def update_collection_with_links(data_list):
     for item in data_list:
@@ -63,6 +63,5 @@ def update_collection_with_links(data_list):
                 {'$set': {'link_to': link_to_value}}
             )
 
-# needs testing. check again before testing
-
-# update_collection_with_links(meter_links)
+# update_collection_with_links(meter_links())
+print(meter_links())
