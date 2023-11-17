@@ -4,7 +4,6 @@ from waitress import serve
 import datetime as dt
 import requests
 import json
-import time
 
 app = Flask(__name__)
 
@@ -12,14 +11,13 @@ conn_prod_db = MongoClient('mongodb://diegomary:Atreius%4062@vpp4i.nevergoback.c
 db_prod = conn_prod_db['vpp4i']
 
 def missing_timestamps_func(data, ts_start, ts_end):
-    sorted_data = sorted(data, key=lambda x : x['timestamp'])
-    # ts_start = sorted_data[0]['timestamp']
-    f_ts_start = dt.datetime.strptime(str(ts_start), '%Y%m%d%H%M%S')
-    # ts_end = sorted_data[-1]['timestamp']
-    f_ts_end = dt.datetime.strptime(str(ts_end), '%Y%m%d%H%M%S')
-    counter = 0
     missing_timestamps = []
-    print('f_ts_start ', ts_start)
+    if len(data) == 0:
+        return 'all timestamps were missing'
+    sorted_data = sorted(data, key=lambda x : x['timestamp'])
+    f_ts_start = dt.datetime.strptime(str(ts_start), '%Y%m%d%H%M%S')
+    f_ts_end = dt.datetime.strptime(str(ts_end), '%Y%m%d%H%M%S')
+    counter = 0 
     for doc in sorted_data:    
         doc_ts = dt.datetime.strptime(str(doc['timestamp']), '%Y%m%d%H%M%S')
         if str(f_ts_start) > str(f_ts_end):
@@ -31,7 +29,31 @@ def missing_timestamps_func(data, ts_start, ts_end):
                 f_ts_start += dt.timedelta(hours=1)
                 counter += 1
         if str(doc_ts) == str(f_ts_start):
-            f_ts_start += dt.timedelta(hours=1)
+            f_ts_start += dt.timedelta(hours=1)   
+    return missing_timestamps      
+
+def missing_timestamps_meters_func(data_input, ts_start, ts_end):
+    missing_timestamps = []
+    data = data_input['data'] 
+    if len(data) == 0:
+        return 'all timestamps were missing'
+    sorted_data = sorted(data, key=lambda x : x['timestamp'])
+    f_ts_start = dt.datetime.strptime(str(ts_start), '%Y%m%d%H%M%S')
+    f_ts_end = dt.datetime.strptime(str(ts_end), '%Y%m%d%H%M%S')
+    counter = 0 
+    for doc in sorted_data:    
+        doc_ts = dt.datetime.strptime(str(doc['timestamp']), '%Y%m%d%H%M%S')
+        if str(f_ts_start) > str(f_ts_end):
+            return missing_timestamps
+        if str(doc_ts) != str(f_ts_start):
+            while str(doc_ts) != str(f_ts_start):
+                info_missing = {"timestamp": str(f_ts_start)}
+                missing_timestamps.append(info_missing)
+                f_ts_start += dt.timedelta(hours=1)
+                counter += 1
+        if str(doc_ts) == str(f_ts_start):
+            f_ts_start += dt.timedelta(hours=1)   
+    return missing_timestamps      
 
 @app.route('/getgokcfromto')
 def get_gokc_from_to():
@@ -43,12 +65,12 @@ def get_gokc_from_to():
                                     json={'UserCode': 'vpp4islands.webservice', 'Password': 'kYJ95zg3'},
                                     headers={'Content-Type': 'application/json'})
     token = json.loads(responseToken.content.decode('utf8'))
-    responseMeters = requests.post(
+    response_meters = requests.post(
                 'https://osos.uedas.com.tr/aril-portalserver/customer-rest-api/proxy-aril/GetCustomerPortalSubscriptions',
                 json={'PageNumber': 1, 'PageSize': 100000},
                 headers={'Content-Type': 'application/json', 'aril-service-token': token})
-    allSubscriptions = json.loads(json.dumps(responseMeters.json()))
-    filtered = allSubscriptions.get('ResultList', '0')
+    all_subscriptions = json.loads(json.dumps(response_meters.json()))
+    filtered = all_subscriptions.get('ResultList', '0')
     for singlesub in filtered:
         metersreal.append(singlesub.get('SubscriptionSerno', '0'))
     result = []
@@ -58,13 +80,13 @@ def get_gokc_from_to():
     gokcgrid_list = list(db_prod['gokcgrid'].find({"type": type}, {"_id": 0}))
     sub_sms = [x['meter'] for x in gokcgrid_list]
     for i in range(0, meters_len, step): 
-        try:       
-            meters_start = i
-            meters_end = i + step
-            if meters_end >= meters_len:
-                meters_end = meters_len  
-            print(f'trying with metersreal[{meters_start}:{meters_end}]')
-            for meter in metersreal[meters_start:meters_end]:
+        meters_start = i
+        meters_end = i + step
+        if meters_end >= meters_len:
+            meters_end = meters_len     
+        print(f'getting data for metersreal[{meters_start}:{meters_end}]')
+        for meter in metersreal[meters_start:meters_end]:
+            try:
                 if meter in sub_sms:
                     response_consumption = requests.post(
                                     'https://osos.uedas.com.tr/aril-portalserver/customer-rest-api/proxy-aril/GetOwnerConsumptions',
@@ -76,27 +98,33 @@ def get_gokc_from_to():
                     for pd_inc, pd_outc in zip(data['InConsumption'], data['OutConsumption']):
                         inc_value = pd_inc['cn']
                         outc_value = pd_outc['cn']
-                        to_append = {'timestamp': str(pd_inc['pd']), 'InConsumption': inc_value, 'OutConsumption': outc_value}
+                        to_append = {'timestamp': str(pd_inc['pd']), 'in_consumption': inc_value, 'out_consumption': outc_value}
                         meter_data.append(to_append) 
                     doc = {"meter": meter, "type": type,"data": meter_data}
-                    result.append(doc)
+                    result.append(doc)  
+                    # print(f'received data for metersreal[{meters_start}:{meters_end}] from uedas /API')
                 else:
                     continue
-            print(f'received data for metersreal[{meters_start}:{meters_end}] from uedas /API')
-        except Exception as e:
-            print('error: ', e)
-            if meters_start == 0:
-                meters_start = 0
-                meters_end = meters_start + step
-            else:
-                meters_start -= step
-                if meters_end == meters_len:
-                    meters_end = meters_len
+            
+            except Exception as e:
+                print('error: ', e)
+                if meters_start == 0:
+                    meters_start = 0
+                    meters_end = meters_start + step
                 else:
-                    meters_end -= step
-            print('meters_start in except ', meters_start)
-            print('meters_end in except ', meters_end)
+                    meters_start -= step
+                    if meters_end == meters_len:
+                        meters_end = meters_len
+                    else:
+                        meters_end -= step
+                print('meters_start in except ', meters_start)
+                print('meters_end in except ', meters_end)
+            print(f'received data for metersreal[{meters_start}:{meters_end}] from uedas /API')
     print('meters data from uedas /API obtained succesfully')
+    for _ in result:
+        missing = missing_timestamps_meters_func(_, start_ts, end_ts)
+        if missing != []:
+            missing_ts.append({"meter":_['meter'], "missing": missing})
     boxes_data = []
     boxes_coll_names = [
                     "box1_gokc",
@@ -124,10 +152,13 @@ def get_gokc_from_to():
             missing_ts.append({"name":box_coll_name, "missing": missing_box_ts})
         boxes_data.append({"box": type, "name": box_coll_name, "data": box_data})
     print('boxes data obtained succesfully')
-    resp = {"meters": result, "boxes": boxes_data}
-    print('meters len ', len(result))  
-    print('boxes len', len(boxes_data))
-    print(missing_ts)
+    resp = {"meters": result, "boxes": boxes_data, "missing": missing_ts}
+    for doc in result:
+        print(doc['meter'], ' len: ', len(doc['data']))
+    for doc in boxes_data:
+        print(doc['name'], ' len: ', len(doc['data']))
+    print('meters len: ', len(result))  
+    print('boxes len: ', len(boxes_data))
     return jsonify(resp)
 
 if __name__ == "__main__":
