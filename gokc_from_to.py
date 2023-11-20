@@ -34,7 +34,7 @@ def missing_timestamps_func(data, ts_start, ts_end):
 
 def missing_timestamps_meters_func(data_input, ts_start, ts_end):
     missing_timestamps = []
-    data = data_input['data'] 
+    data = data_input['meter_data'] 
     if len(data) == 0:
         return 'all timestamps were missing'
     sorted_data = sorted(data, key=lambda x : x['timestamp'])
@@ -53,12 +53,21 @@ def missing_timestamps_meters_func(data_input, ts_start, ts_end):
                 counter += 1
         if str(doc_ts) == str(f_ts_start):
             f_ts_start += dt.timedelta(hours=1)   
-    return missing_timestamps      
+    return missing_timestamps   
+
+def build_collection_on_db(data, ts_start, ts_end):
+    doc = {"data": data, "timestamp_start": ts_start, "timestamp_end": ts_end}
+    electrical_grid_gokc = db_prod['electrical_grid_gokc']
+    electrical_grid_gokc.insert_one(doc)
+    print("Inserted document on the db in collection 'electrical_grid_gokc'")  
+        
 
 @app.route('/getgokcfromto')
 def get_gokc_from_to():
     start_ts = request.json.get('timestamp_start')
     end_ts = request.json.get('timestamp_end')
+    include_missing = request.json.get('include_missing')
+    insert_on_db = request.json.get("insert_on_db")
     metersreal = []
     missing_ts = []
     responseToken = requests.put('https://osos.uedas.com.tr/aril-portalserver/customer-rest-api/generate-token',
@@ -100,12 +109,10 @@ def get_gokc_from_to():
                         outc_value = pd_outc['cn']
                         to_append = {'timestamp': str(pd_inc['pd']), 'in_consumption': inc_value, 'out_consumption': outc_value}
                         meter_data.append(to_append) 
-                    doc = {"meter": meter, "type": type,"data": meter_data}
+                    doc = {"meter": meter, "type": type,"meter_data": meter_data}
                     result.append(doc)  
-                    # print(f'received data for metersreal[{meters_start}:{meters_end}] from uedas /API')
                 else:
-                    continue
-            
+                    continue    
             except Exception as e:
                 print('error: ', e)
                 if meters_start == 0:
@@ -119,7 +126,7 @@ def get_gokc_from_to():
                         meters_end -= step
                 print('meters_start in except ', meters_start)
                 print('meters_end in except ', meters_end)
-            print(f'received data for metersreal[{meters_start}:{meters_end}] from uedas /API')
+        print(f'received data for metersreal[{meters_start}:{meters_end}] from uedas /API')
     print('meters data from uedas /API obtained succesfully')
     for _ in result:
         missing = missing_timestamps_meters_func(_, start_ts, end_ts)
@@ -144,21 +151,26 @@ def get_gokc_from_to():
             input_ts = str(_['timestamp'])
             dt_object = dt.datetime.strptime(input_ts, "%Y-%m-%d %H:%M:%S")
             timestamp_f = dt.datetime.strftime(dt_object, "%Y%m%d%H%M%S")
-            doc_corr = {"timestamp": timestamp_f, "generated": _['generated']}
+            doc_corr = {"timestamp": timestamp_f, "generated": float(_['generated'])}
             type = _['type']
             box_data.append(doc_corr)
         missing_box_ts = missing_timestamps_func(box_data, start_ts, end_ts)
         if missing_box_ts != []:   
-            missing_ts.append({"name":box_coll_name, "missing": missing_box_ts})
-        boxes_data.append({"box": type, "name": box_coll_name, "data": box_data})
+            missing_ts.append({"name": box_coll_name, "missing": missing_box_ts})
+        boxes_data.append({"type": type, "name": box_coll_name, "box_data": box_data})
     print('boxes data obtained succesfully')
-    resp = {"meters": result, "boxes": boxes_data, "missing": missing_ts}
+    if include_missing == True:
+        resp = {"meters": result, "boxes": boxes_data, "missing": missing_ts}
+    if include_missing == False:
+        resp = {"meters": result, "boxes": boxes_data}
     for doc in result:
-        print(doc['meter'], ' len: ', len(doc['data']))
+        print(doc['meter'], ' len: ', len(doc['meter_data']))
     for doc in boxes_data:
-        print(doc['name'], ' len: ', len(doc['data']))
+        print(doc['name'], ' len: ', len(doc['box_data']))
     print('meters len: ', len(result))  
     print('boxes len: ', len(boxes_data))
+    if insert_on_db == True:
+        build_collection_on_db(resp, start_ts, end_ts)
     return jsonify(resp)
 
 if __name__ == "__main__":
