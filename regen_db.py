@@ -4,10 +4,7 @@ from pymongo import MongoClient, UpdateOne, InsertOne
 import datetime as dt
 from datetime import datetime
 import time
-from dotenv import load_dotenv
 import os
-
-load_dotenv()
 
 connection_string=os.getenv('connection_string')
 personal_connection_string = os.getenv('personal_connection_string')

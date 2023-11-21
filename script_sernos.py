@@ -1,9 +1,6 @@
 import pandas as pd
 from pymongo import MongoClient
-from dotenv import load_dotenv
 import os
-
-load_dotenv()
 
 connection_string=os.getenv('connection_string')
 personal_connection_string = os.getenv('personal_connection_string')

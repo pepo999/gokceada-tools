@@ -6,12 +6,9 @@ from waitress import serve
 import requests
 from flask import Flask, jsonify
 import json
-from dotenv import load_dotenv
 import os
 
-load_dotenv()
-
-connection_string=os.getenv('connection_string')
+connection_string= os.getenv('connection_string')
 personal_connection_string = os.getenv('personal_connection_string')
 conn_prod_db = MongoClient(connection_string, 27017)
 conn_personal_db = MongoClient(personal_connection_string, 27017)
@@ -64,7 +61,7 @@ def without_types(*types):
             else:
                 corr_doc = {"serno": item['meter'], "type": item['type']}
                 corr_res.append(corr_doc)  
-        assert len(result) == len(corr_res), 'length of data from db and processed data should be the same'    
+        assert len(result) == len(corr_res), 'length of filtered data and processed data should be the same'    
         return corr_res
 
 @app.route('/meterslist')

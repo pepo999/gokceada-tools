@@ -4,12 +4,10 @@ from waitress import serve
 import datetime as dt
 import requests
 import json
-from dotenv import load_dotenv
 import os
 
 app = Flask(__name__)
 
-load_dotenv()
 connection_string=os.getenv('connection_string')
 conn_prod_db = MongoClient(connection_string, 27017)
 db_prod = conn_prod_db['vpp4i']
