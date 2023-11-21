@@ -4,10 +4,14 @@ from waitress import serve
 import datetime as dt
 import requests
 import json
+from dotenv import load_dotenv
+import os
 
 app = Flask(__name__)
 
-conn_prod_db = MongoClient('mongodb://diegomary:Atreius%4062@vpp4i.nevergoback.cloud:27017/?serverSelectionTimeoutMS=5000&connectTimeoutMS=10000&authSource=admin&authMechanism=SCRAM-SHA-256', 27017)
+load_dotenv()
+connection_string=os.getenv('connection_string')
+conn_prod_db = MongoClient(connection_string, 27017)
 db_prod = conn_prod_db['vpp4i']
 
 def missing_timestamps_func(data, ts_start, ts_end):
