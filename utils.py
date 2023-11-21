@@ -52,6 +52,27 @@ def fill_missing_ts(collection_name):
     print("done")
     return 'done'
 
+def without_types(*types):
+        gokc_grid = list(db_prod['gokcgrid'].find({}, {'_id': 0, 'link_to': 0, 'lat': 0, 'long': 0, 'line_to': 0}))
+        result = []
+        result = [doc for doc in gokc_grid if doc['type'] not in types]
+        corr_res = []
+        for item in result:
+            if type(item['meter']) == str:
+                corr_doc = {"name": item['meter'], "type": item['type']}
+                corr_res.append(corr_doc)
+            else:
+                corr_doc = {"serno": item['meter'], "type": item['type']}
+                corr_res.append(corr_doc)  
+        assert len(result) == len(corr_res), 'length of data from db and processed data should be the same'    
+        return corr_res
+
+@app.route('/meterslist')
+def meters_list():
+    res = without_types('virtual_node', 'private_sm')
+    sorted_res = sorted(res, key= lambda x : x['type'], reverse=True)
+    return jsonify(sorted_res)
+
 @app.route('/impute/<collection_name>')
 def impute(collection_name):
     box2 = db_personal['box2_gokc']
