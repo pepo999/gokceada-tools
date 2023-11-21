@@ -4,9 +4,15 @@ from pymongo import MongoClient, UpdateOne, InsertOne
 import datetime as dt
 from datetime import datetime
 import time
+from dotenv import load_dotenv
+import os
 
-conn_prod_db = MongoClient('mongodb://diegomary:Atreius%4062@vpp4i.nevergoback.cloud:27017/?serverSelectionTimeoutMS=5000&connectTimeoutMS=10000&authSource=admin&authMechanism=SCRAM-SHA-256', 27017)
-conn_personal_db = MongoClient("mongodb+srv://pietroviglino999:rkoEZiZp6tzduEUZ@vpp4dbtest.yseft60.mongodb.net/?retryWrites=true&w=majority", 27017)
+load_dotenv()
+
+connection_string=os.getenv('connection_string')
+personal_connection_string = os.getenv('personal_connection_string')
+conn_prod_db = MongoClient(connection_string, 27017)
+conn_personal_db = MongoClient(personal_connection_string, 27017)
 
 db_prod = conn_prod_db['vpp4i']
 db_personal = conn_personal_db['vpp4_database_test']
