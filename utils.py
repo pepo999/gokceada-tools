@@ -50,24 +50,27 @@ def fill_missing_ts(collection_name):
     return 'done'
 
 def without_types(*types):
-        gokc_grid = list(db_prod['gokcgrid'].find({}, {'_id': 0, 'link_to': 0, 'lat': 0, 'long': 0, 'line_to': 0}))
+        gokc_grid = list(db_prod['gokcgrid'].find({}, {'_id': 0, 'link_to': 0, 'line_to': 0}))
         result = []
         result = [doc for doc in gokc_grid if doc['type'] not in types]
         corr_res = []
         for item in result:
             if type(item['meter']) == str:
-                corr_doc = {"name": item['meter'], "type": item['type']}
+                corr_doc = {"name": item['meter'], "type": item['type'], "lat": item['lat'], "long": item['long']}
                 corr_res.append(corr_doc)
             else:
-                corr_doc = {"serno": item['meter'], "type": item['type']}
+                type_ = item['type']
+                if item['type'] == 'node_no_uedas':
+                    type_ = 'not_uedas'    
+                corr_doc = {"serno": item['meter'], "type": type_, "lat": item['lat'], "long": item['long']}
                 corr_res.append(corr_doc)  
         assert len(result) == len(corr_res), 'length of filtered data and processed data should be the same'    
         return corr_res
 
 @app.route('/meterslist')
 def meters_list():
-    res = without_types('virtual_node', 'private_sm')
-    sorted_res = sorted(res, key= lambda x : x['type'], reverse=True)
+    res = without_types('private_sm')
+    sorted_res = sorted(res, key= lambda x : x['type'], reverse=False)
     return jsonify(sorted_res)
 
 @app.route('/impute/<collection_name>')
@@ -101,6 +104,30 @@ def plot_coll(collection_name):
     plt.xticks(rotation=45)
     plt.show()
     return 'done'
+
+@app.route('/plot_gokc_sm/<meter>')
+def plot_gokc_smartmeters(meter):
+    coll = db_personal['gokc_smartmetes']
+    pipeline = [
+        {
+            "$unwind": "$meters"
+        },
+        {
+            "$match": {
+                "meters.meter": int(meter)
+            }
+        },
+        {
+            "$project": {
+                "_id": 1,
+                "timestamp_end": 1,
+                "meter": "$meters.meter",
+                "InConsumption": "$meters.InConsumption"
+            }
+        }
+    ]
+    data = list(coll.aggregate(pipeline))
+    return jsonify(data)
 
 # this one structures the db like formentera's
 # @app.route('/api/regeneratedb')
