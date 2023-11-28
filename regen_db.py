@@ -112,14 +112,15 @@ def timer_function(func):
 #     return
 
 @timer_function
-def get_data_api_and_insert(token, metersreal, meters_start, meters_end, meters_len, step, gokc_data_db):
-    print(f'Fetching data for metersreal[{meters_start}:{meters_end}]')
+def get_data_api_and_insert(token, metersreal, meters_start, meters_end, meters_len, step):
+    # print(f'Fetching data for metersreal[{meters_start}:{meters_end}]')
     result = []
     for meter in metersreal[meters_start:meters_end]:
         try:
+            print('meter: ', meter)
             response_consumption = requests.post(
                             'https://osos.uedas.com.tr/aril-portalserver/customer-rest-api/proxy-aril/GetOwnerConsumptions',
-                            json={'OwnerSerno': meter, 'StartDate': '20221001130000', 'EndDate': '205001010100000',
+                            json={'OwnerSerno': meter, 'StartDate': '20221001130000', 'EndDate': '20231020150000',
                                 'WithoutMultiplier': 'false', 'MergeResult': 'false'},
                             headers={'Content-Type': 'application/json', 'aril-service-token': token})
             data = json.loads(json.dumps(response_consumption.json()))
@@ -159,9 +160,9 @@ def get_data_api_and_insert(token, metersreal, meters_start, meters_end, meters_
             # here fill missing timestamps for meter with 0.0 ?
             sorted_res = sorted(to_db, key=lambda x: x['timestamp_end'])
             print('To db len:', len(sorted_res))
-            gokc_sm_coll = db_personal['gokc_smartmeters'] # after testing is completed this should be changed to production db
-            # gokc_data_db = list(gokc_sm_coll.find({}, {'_id': 0}))
-            # print('received gokc data already on db for checking')
+            gokc_sm_coll = db_personal['historic_gokc_smartmeters'] # after testing is completed this should be changed to production db
+            gokc_data_db = list(gokc_sm_coll.find({}, {'_id': 0}))
+            print('received gokc data already on db for checking')
             bulk_operations = []
             for doc in sorted_res:
                 existing_doc = next((item for item in gokc_data_db if item["timestamp_end"] == doc["timestamp_end"]), None)
@@ -183,8 +184,8 @@ def get_data_api_and_insert(token, metersreal, meters_start, meters_end, meters_
                 gokc_sm_coll.bulk_write(bulk_operations)
             elif bulk_operations == []:
                 print('No operation needed')
-            print(f'Done with metersreal[{meters_start}:{meters_end}]')
-            break
+            # print(f'Done with metersreal[{meters_start}:{meters_end}]')
+            # break # this was not good, except for the print statement above...
         except Exception as e:
             print('Error: ', e)
             if meters_start == 0:
@@ -213,16 +214,13 @@ def regenerate_gokc_db():
         metersreal.append(singlesub.get('SubscriptionSerno', '0'))
         data_db = list()
     meters_len = len(metersreal)
-    step = 10
-    gokc_sm_coll = db_personal['gokc_smartmeters'] # this should be changed to production db after testing
-    data_db = list(gokc_sm_coll.find({}, {'_id': 0}))
-    print('received gokc data already on db for checking')
+    step = 146
     for i in range(0, meters_len, step):
         meters_start = i
         meters_end = i + step
         if meters_end >= meters_len:
             meters_end = meters_len
-        get_data_api_and_insert(token, metersreal, meters_start, meters_end, meters_len, step, data_db)
+        get_data_api_and_insert(token, metersreal, meters_start, meters_end, meters_len, step)
     print('ALL done :)')
     return
 
